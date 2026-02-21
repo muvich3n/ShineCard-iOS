@@ -323,7 +323,7 @@ fragment float4 fragmentShader(
     
     float4 finalColor = baseColor;
     
-    // 应用 Holo 效果
+    // 应用 Holo 效果 - 使用 mix 代替 overlay，更透明
     if (uniforms.enableHolo > 0.5) {
         float4 holoColor;
         if (uniforms.enableDoubleHolo > 0.5) {
@@ -331,8 +331,8 @@ fragment float4 fragmentShader(
         } else {
             holoColor = holo(uv, uniforms, 0.0, 0.0, 1.0);
         }
-        // 混合全息层（使用 alpha 混合）
-        finalColor.xyz = overlayChannels(finalColor.xyz, holoColor.xyz * holoColor.w);
+        // 降低 holo 强度，使用 mix 混合 (0.3 是透明度因子)
+        finalColor.xyz = mix(finalColor.xyz, holoColor.xyz, holoColor.w * 0.3);
     }
     
     // 应用 Glare 效果

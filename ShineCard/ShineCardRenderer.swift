@@ -78,12 +78,12 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
     struct HoloParams {
         var directionDegree: Float = 45.0
         var shift: Float = 0.0
-        var rotationShiftPower: Float = 0.5
-        var size: Float = 0.15
-        var multiplier: Float = 8.0
-        var easeSize: Float = 0.3
-        var visibility: Float = 0.8
-        var saturation: Float = 0.9
+        var rotationShiftPower: Float = 0.3  // 降低，响应更柔和
+        var size: Float = 0.08                 // 条纹更细
+        var multiplier: Float = 4.0            // 条纹更稀疏
+        var easeSize: Float = 0.5
+        var visibility: Float = 0.5            // 降低，更透明
+        var saturation: Float = 0.8
     }
     
     struct GlareParams {
@@ -165,19 +165,22 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         cardTexture = device.makeTexture(descriptor: textureDescriptor)
         blurredTexture = device.makeTexture(descriptor: textureDescriptor)
         
-        // 创建彩虹渐变纹理
+        // 创建深色卡片纹理（宝可梦卡牌风格）
         var pixels: [UInt8] = []
         for y in 0..<height {
             for x in 0..<width {
-                let t = Float(x + y) / Float(width + height)
-                let hue = t * 360.0
-                let rgb = hsvToRGB(h: hue, s: 0.8, v: 0.6)
-                
-                pixels.append(UInt8(rgb.0 * 255))
-                pixels.append(UInt8(rgb.1 * 255))
-                pixels.append(UInt8(rgb.2 * 255))
+                // 深蓝紫色底色，带轻微渐变
+                let t = Float(y) / Float(height)
+                let r = UInt8(30 + t * 20)
+                let g = UInt8(20 + t * 15)
+                let b = UInt8(60 + t * 40)
+                pixels.append(r)
+                pixels.append(g)
+                pixels.append(b)
                 pixels.append(255)
             }
+        }
+                
         }
         
         pixels.withUnsafeBytes { ptr in
