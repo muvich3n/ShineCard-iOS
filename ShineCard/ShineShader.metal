@@ -71,7 +71,12 @@ vertex Vertex vertexShader(uint vertexID [[vertex_id]]) {
     return out;
 }
 
-// MARK: - 工具函数 (1:1 复刻 tgpuUtils.ts)
+// MARK: - 工具函数
+
+// 角度转弧度 (WGSL radians() 的 Metal 实现)
+float radians(float degrees) {
+    return degrees * (M_PI_F / 180.0);
+}
 
 // 随机数生成 (1:1 复刻 random)
 float random(float2 st) {
