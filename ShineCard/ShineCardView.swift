@@ -13,7 +13,7 @@ struct ShineCardView: UIViewRepresentable {
     
     func makeUIView(context: Context) -> ShineCardMetalView {
         let view = ShineCardMetalView()
-        view.delegate = context.coordinator
+        view.touchDelegate = context.coordinator
         return view
     }
     
