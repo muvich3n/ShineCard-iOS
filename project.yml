@@ -1,0 +1,14 @@
+name: ShineCard
+targets:
+  ShineCard:
+    type: application
+    platform: iOS
+    deploymentTarget: "15.0"
+    sources:
+      - ShineCard
+    settings:
+      PRODUCT_BUNDLE_IDENTIFIER: com.muvich3n.shinecard
+      INFOPLIST_FILE: ShineCard/Info.plist
+      GENERATE_INFOPLIST_FILE: YES
+      SWIFT_VERSION: "5.9"
+    dependencies: []
