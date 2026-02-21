@@ -16,33 +16,44 @@ struct Vertex {
 
 // MARK: - Uniforms (对应 WebGPU bind groups)
 struct Uniforms {
-    float2 resolution;           // 屏幕分辨率
-    float2 rotation;             // 旋转/倾斜参数 (rot.xy)
-    float time;                  // 时间
+    // 基础参数 (32 bytes)
+    float2 resolution;
+    float2 rotation;
+    float time;
+    float _padding1;
+    float _padding2;
+    float _padding3;
     
-    // Holo options
-    float holoDirectionDegree;   // 全息方向角度
-    float holoShift;             // 偏移
-    float holoRotationShiftPower;// 旋转偏移强度
-    float holoSize;              // 全息条纹大小
-    float holoMultiplier;        // 条纹密度乘数
-    float holoEaseSize;          // 边缘过渡大小
-    float holoVisibility;        // 全息可见度
-    float holoSaturation;        // 饱和度
+    // Holo 参数 (48 bytes)
+    float holoDirectionDegree;
+    float holoShift;
+    float holoRotationShiftPower;
+    float holoSize;
+    float holoMultiplier;
+    float holoEaseSize;
+    float holoVisibility;
+    float holoSaturation;
+    float _padding4;
+    float _padding5;
+    float _padding6;
+    float _padding7;
     
-    // Glare options
-    float glareIntensity;        // 光泽强度
-    float glowPower;             // 光晕曲线
-    float lightIntensity;        // 光源强度
-    float hueBlendPower;         // 色相混合强度
-    float hueShiftAngleMin;      // 色相偏移最小角度
-    float hueShiftAngleMax;      // 色相偏移最大角度
-    float4 glareColor;           // 光泽颜色 RGBA
+    // Glare 参数 (48 bytes)
+    float glareIntensity;
+    float glowPower;
+    float lightIntensity;
+    float hueBlendPower;
+    float hueShiftAngleMin;
+    float hueShiftAngleMax;
+    float _padding8;
+    float _padding9;
+    float4 glareColor;
     
-    // 效果开关
-    float enableHolo;            // 1.0 = 开启全息
-    float enableGlare;           // 1.0 = 开启光泽
-    float enableDoubleHolo;      // 1.0 = 双层全息
+    // 效果开关 (16 bytes)
+    float enableHolo;
+    float enableGlare;
+    float enableDoubleHolo;
+    float _padding10;
 };
 
 // MARK: - 顶点着色器 (1:1 复刻 mainVertex)
