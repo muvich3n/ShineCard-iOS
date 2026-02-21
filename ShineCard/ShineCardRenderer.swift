@@ -9,49 +9,41 @@ import MetalKit
 import MetalPerformanceShaders
 
 // MARK: - Uniforms
-// 注意：必须与 Metal shader 中的结构体完全一致
-// 内存布局: 按 16 字节对齐
 struct Uniforms {
-    // 基础参数 (32 bytes)
-    var resolution: SIMD2<Float>      // offset 0
-    var rotation: SIMD2<Float>         // offset 8
-    var time: Float                    // offset 16
-    var _padding1: Float = 0           // offset 20 (对齐)
-    var _padding2: Float = 0           // offset 24
-    var _padding3: Float = 0           // offset 28
+    var resolution: SIMD2<Float>
+    var rotation: SIMD2<Float>
+    var time: Float
+    var _padding1: Float
+    var _padding2: Float
+    var _padding3: Float
     
-    // Holo 参数 (36 bytes, 按 16 对齐到 48)
-    var holoDirectionDegree: Float     // offset 32
-    var holoShift: Float               // offset 36
-    var holoRotationShiftPower: Float  // offset 40
-    var holoSize: Float                // offset 44
-    var holoMultiplier: Float          // offset 48
-    var holoEaseSize: Float            // offset 52
-    var holoVisibility: Float          // offset 56
-    var holoSaturation: Float          // offset 60
-    var _padding4: Float = 0           // offset 64
-    var _padding5: Float = 0           // offset 68
-    var _padding6: Float = 0           // offset 72
-    var _padding7: Float = 0           // offset 76
+    var holoDirectionDegree: Float
+    var holoShift: Float
+    var holoRotationShiftPower: Float
+    var holoSize: Float
+    var holoMultiplier: Float
+    var holoEaseSize: Float
+    var holoVisibility: Float
+    var holoSaturation: Float
+    var _padding4: Float
+    var _padding5: Float
+    var _padding6: Float
+    var _padding7: Float
     
-    // Glare 参数 (48 bytes)
-    var glareIntensity: Float          // offset 80
-    var glowPower: Float               // offset 84
-    var lightIntensity: Float          // offset 88
-    var hueBlendPower: Float           // offset 92
-    var hueShiftAngleMin: Float        // offset 96
-    var hueShiftAngleMax: Float        // offset 100
-    var _padding8: Float = 0           // offset 104 (填充到 16 对齐)
-    var _padding9: Float = 0           // offset 108
-    var glareColor: SIMD4<Float>       // offset 112 (16 对齐)
+    var glareIntensity: Float
+    var glowPower: Float
+    var lightIntensity: Float
+    var hueBlendPower: Float
+    var hueShiftAngleMin: Float
+    var hueShiftAngleMax: Float
+    var _padding8: Float
+    var _padding9: Float
+    var glareColor: SIMD4<Float>
     
-    // 效果开关 (16 bytes)
-    var enableHolo: Float              // offset 128
-    var enableGlare: Float             // offset 132
-    var enableDoubleHolo: Float        // offset 136
-    var _padding10: Float = 0          // offset 140
-    
-    // 总大小: 144 bytes
+    var enableHolo: Float
+    var enableGlare: Float
+    var enableDoubleHolo: Float
+    var _padding10: Float
 }
 
 class ShineCardRenderer: NSObject, MTKViewDelegate {
@@ -64,11 +56,9 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
     private var samplerState: MTLSamplerState!
     private var blurPipeline: MPSImageGaussianBlur?
     
-    // 状态
     private var rotation: SIMD2<Float> = [0.0, 0.0]
     private var startTime: Date = Date()
     
-    // 效果参数
     var holoParams = HoloParams()
     var glareParams = GlareParams()
     var enableHolo: Bool = true
@@ -78,11 +68,11 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
     struct HoloParams {
         var directionDegree: Float = 45.0
         var shift: Float = 0.0
-        var rotationShiftPower: Float = 0.3  // 降低，响应更柔和
-        var size: Float = 0.08                 // 条纹更细
-        var multiplier: Float = 4.0            // 条纹更稀疏
+        var rotationShiftPower: Float = 0.3
+        var size: Float = 0.08
+        var multiplier: Float = 4.0
         var easeSize: Float = 0.5
-        var visibility: Float = 0.5            // 降低，更透明
+        var visibility: Float = 0.5
         var saturation: Float = 0.8
     }
     
@@ -104,7 +94,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         }
         self.commandQueue = queue
         
-        // 加载 shader
         let library: MTLLibrary
         do {
             library = try device.makeDefaultLibrary(bundle: Bundle.main)
@@ -117,7 +106,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
             fatalError("Could not find shader functions")
         }
         
-        // 创建 pipeline
         let pipelineDescriptor = MTLRenderPipelineDescriptor()
         pipelineDescriptor.vertexFunction = vertexFunction
         pipelineDescriptor.fragmentFunction = fragmentFunction
@@ -131,7 +119,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         
         super.init()
         
-        // 创建 sampler
         let samplerDescriptor = MTLSamplerDescriptor()
         samplerDescriptor.minFilter = .linear
         samplerDescriptor.magFilter = .linear
@@ -139,16 +126,12 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         samplerDescriptor.tAddressMode = .clampToEdge
         samplerState = device.makeSamplerState(descriptor: samplerDescriptor)
         
-        // 创建 uniforms buffer
         let uniformsSize = MemoryLayout<Uniforms>.size
         print("Uniforms size: \(uniformsSize) bytes")
         uniformsBuffer = device.makeBuffer(length: uniformsSize, options: .storageModeShared)
         
-        // 加载纹理
         loadTextures(size: CGSize(width: 512, height: 512))
     }
-    
-    // MARK: - 纹理加载
     
     private func loadTextures(size: CGSize) {
         let width = Int(size.width)
@@ -165,11 +148,9 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         cardTexture = device.makeTexture(descriptor: textureDescriptor)
         blurredTexture = device.makeTexture(descriptor: textureDescriptor)
         
-        // 创建深色卡片纹理（宝可梦卡牌风格）
         var pixels: [UInt8] = []
         for y in 0..<height {
             for x in 0..<width {
-                // 深蓝紫色底色，带轻微渐变
                 let t = Float(y) / Float(height)
                 let r = UInt8(30 + t * 20)
                 let g = UInt8(20 + t * 15)
@@ -179,8 +160,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
                 pixels.append(b)
                 pixels.append(255)
             }
-        }
-                
         }
         
         pixels.withUnsafeBytes { ptr in
@@ -206,20 +185,16 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         let x = c * (1.0 - abs(fmod(h / 60.0, 2.0) - 1.0))
         let m = v - c
         
-        let (r, g, b): (Float, Float, Float)
-        switch Int(h / 60.0) % 6 {
-        case 0: (r, g, b) = (c, x, 0)
-        case 1: (r, g, b) = (x, c, 0)
-        case 2: (r, g, b) = (0, c, x)
-        case 3: (r, g, b) = (0, x, c)
-        case 4: (r, g, b) = (x, 0, c)
-        default: (r, g, b) = (c, 0, x)
+        let i = Int(h / 60.0) % 6
+        switch i {
+        case 0: return (r: c + m, g: x + m, b: m)
+        case 1: return (r: x + m, g: c + m, b: m)
+        case 2: return (r: m, g: c + m, b: x + m)
+        case 3: return (r: m, g: x + m, b: c + m)
+        case 4: return (r: x + m, g: m, b: c + m)
+        default: return (r: c + m, g: m, b: x + m)
         }
-        
-        return (r + m, g + m, b + m)
     }
-    
-    // MARK: - 触摸处理
     
     func touchBegan(at location: CGPoint) {
         rotation = [Float(location.x) * 2.0 - 1.0, Float(location.y) * 2.0 - 1.0]
@@ -232,8 +207,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
     func touchEnded() {
         rotation = [0.0, 0.0]
     }
-    
-    // MARK: - MTKViewDelegate
     
     func mtkView(_ view: MTKView, drawableSizeWillChange size: CGSize) {
         if size.width > 0 && size.height > 0 {
@@ -251,13 +224,11 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         let elapsedTime = Float(Date().timeIntervalSince(startTime))
         let drawableSize = view.drawableSize
         
-        // 更新 uniforms
         var uniforms = Uniforms(
             resolution: [Float(drawableSize.width), Float(drawableSize.height)],
             rotation: rotation,
             time: elapsedTime,
             _padding1: 0, _padding2: 0, _padding3: 0,
-            
             holoDirectionDegree: holoParams.directionDegree,
             holoShift: holoParams.shift,
             holoRotationShiftPower: holoParams.rotationShiftPower,
@@ -267,7 +238,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
             holoVisibility: holoParams.visibility,
             holoSaturation: holoParams.saturation,
             _padding4: 0, _padding5: 0, _padding6: 0, _padding7: 0,
-            
             glareIntensity: glareParams.intensity,
             glowPower: glareParams.glowPower,
             lightIntensity: glareParams.lightIntensity,
@@ -276,7 +246,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
             hueShiftAngleMax: glareParams.hueShiftAngleMax,
             _padding8: 0, _padding9: 0,
             glareColor: glareParams.color,
-            
             enableHolo: enableHolo ? 1.0 : 0.0,
             enableGlare: enableGlare ? 1.0 : 0.0,
             enableDoubleHolo: enableDoubleHolo ? 1.0 : 0.0,
@@ -285,7 +254,6 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         
         memcpy(uniformsBuffer.contents(), &uniforms, MemoryLayout<Uniforms>.size)
         
-        // 渲染
         guard let commandBuffer = commandQueue.makeCommandBuffer(),
               let renderEncoder = commandBuffer.makeRenderCommandEncoder(descriptor: renderPassDescriptor) else {
             return
