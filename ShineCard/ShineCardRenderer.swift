@@ -175,6 +175,13 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
                 withBytes: ptr.baseAddress!,
                 bytesPerRow: width * 4
             )
+            // 同时初始化 blurredTexture，避免 nil
+            blurredTexture?.replace(
+                region: MTLRegionMake2D(0, 0, width, height),
+                mipmapLevel: 0,
+                withBytes: ptr.baseAddress!,
+                bytesPerRow: width * 4
+            )
         }
         
         // 初始化高斯模糊管线
@@ -280,7 +287,9 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         renderEncoder.setRenderPipelineState(pipelineState)
         renderEncoder.setFragmentBuffer(uniformsBuffer, offset: 0, index: 0)
         renderEncoder.setFragmentTexture(cardTexture, index: 0)
-        renderEncoder.setFragmentTexture(blurredTexture, index: 1)
+        if let blurredTexture = blurredTexture {
+            renderEncoder.setFragmentTexture(blurredTexture, index: 1)
+        }
         renderEncoder.setFragmentSamplerState(samplerState, index: 0)
         
         // 绘制 (6个顶点，两个三角形)
