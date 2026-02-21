@@ -10,6 +10,7 @@ struct Uniforms {
     var touchPosition: SIMD2<Float>
     var isTouching: Float
     var time: Float
+    var resolution: SIMD2<Float>
 }
 
 class ShineCardRenderer: NSObject, MTKViewDelegate {
@@ -73,6 +74,15 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         
         // 创建 uniforms buffer
         uniformsBuffer = device.makeBuffer(length: MemoryLayout<Uniforms>.size, options: .storageModeShared)
+        
+        // 初始化 uniforms 为零
+        var emptyUniforms = Uniforms(
+            touchPosition: [0.5, 0.5],
+            isTouching: 0.0,
+            time: 0.0,
+            resolution: [1.0, 1.0]
+        )
+        memcpy(uniformsBuffer.contents(), &emptyUniforms, MemoryLayout<Uniforms>.size)
         
         // 加载纹理
         loadTexture()
@@ -141,10 +151,12 @@ class ShineCardRenderer: NSObject, MTKViewDelegate {
         
         // 更新 uniforms
         let elapsedTime = Float(Date().timeIntervalSince(startTime))
+        let drawableSize = view.drawableSize
         var uniforms = Uniforms(
             touchPosition: touchPosition,
             isTouching: isTouching,
-            time: elapsedTime
+            time: elapsedTime,
+            resolution: [Float(drawableSize.width), Float(drawableSize.height)]
         )
         memcpy(uniformsBuffer.contents(), &uniforms, MemoryLayout<Uniforms>.size)
         

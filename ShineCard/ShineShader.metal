@@ -2,6 +2,8 @@
 //  ShineShader.metal
 //  ShineCard
 //
+//  高级光泽效果 - 全息卡牌风格
+//
 
 #include <metal_stdlib>
 using namespace metal;
@@ -15,59 +17,131 @@ struct Vertex {
 // 顶点着色器
 vertex Vertex vertexShader(uint vertexID [[vertex_id]]) {
     const Vertex vertices[] = {
-        {{-1.0, -1.0, 0.0, 1.0}, {0.0, 1.0}},  // 左下
-        {{ 1.0, -1.0, 0.0, 1.0}, {1.0, 1.0}},  // 右下
-        {{-1.0,  1.0, 0.0, 1.0}, {0.0, 0.0}},  // 左上
-        {{ 1.0,  1.0, 0.0, 1.0}, {1.0, 0.0}},  // 右上
+        {{-1.0, -1.0, 0.0, 1.0}, {0.0, 1.0}},
+        {{ 1.0, -1.0, 0.0, 1.0}, {1.0, 1.0}},
+        {{-1.0,  1.0, 0.0, 1.0}, {0.0, 0.0}},
+        {{ 1.0,  1.0, 0.0, 1.0}, {1.0, 0.0}},
     };
     return vertices[vertexID];
 }
 
-// 片段着色器 uniform
+// Uniforms
 struct Uniforms {
-    float2 touchPosition;  // 0-1 范围
+    float2 touchPosition;
     float isTouching;
     float time;
+    float2 resolution;
 };
 
-// 片段着色器 - 光泽效果
+// 噪声函数 - 用于添加纹理感
+float2 hash22(float2 p) {
+    float3 p3 = fract(float3(p.xyx) * float3(0.1031, 0.1030, 0.0973));
+    p3 += dot(p3, p3.yzx + 33.33);
+    return fract((p3.xx + p3.yz) * p3.zy);
+}
+
+float noise(float2 p) {
+    float2 i = floor(p);
+    float2 f = fract(p);
+    f = f * f * (3.0 - 2.0 * f);
+    
+    float a = hash22(i).x;
+    float b = hash22(i + float2(1.0, 0.0)).x;
+    float c = hash22(i + float2(0.0, 1.0)).x;
+    float d = hash22(i + float2(1.0, 1.0)).x;
+    
+    return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+
+// 菲涅尔效应 - 边缘发光
+float fresnel(float cosTheta, float power) {
+    return pow(1.0 - abs(cosTheta), power);
+}
+
+// HSL 转 RGB
+float3 hsl2rgb(float3 c) {
+    float3 rgb = clamp(abs(fmod(c.x * 6.0 + float3(0.0, 4.0, 2.0), 6.0) - 3.0) - 1.0, 0.0, 1.0);
+    return c.z + c.y * (rgb - 0.5) * (1.0 - abs(2.0 * c.z - 1.0));
+}
+
+// 片段着色器 - 高级全息光泽效果
 fragment float4 fragmentShader(
     Vertex in [[stage_in]],
     constant Uniforms &uniforms [[buffer(0)]],
     texture2d<float> cardTexture [[texture(0)]],
     sampler textureSampler [[sampler(0)]]
 ) {
-    // 采样卡片纹理
-    float4 color = cardTexture.sample(textureSampler, in.texCoord);
-    
-    // 如果没有触摸，直接返回原色
-    if (uniforms.isTouching < 0.5) {
-        return color;
-    }
-    
-    // 计算与触摸点的距离
     float2 uv = in.texCoord;
-    float dist = distance(uv, uniforms.touchPosition);
+    float2 touchPos = uniforms.touchPosition;
+    float time = uniforms.time;
     
-    // 光泽强度 - 距离越近越亮
-    float shineRadius = 0.35;
-    float shineIntensity = smoothstep(shineRadius, 0.0, dist);
+    // 采样基础纹理
+    float4 baseColor = cardTexture.sample(textureSampler, uv);
     
-    // 光泽颜色（白色带点彩虹）
-    float3 shineColor = float3(1.0, 1.0, 1.0);
+    // 计算与触摸点的方向向量
+    float2 toTouch = touchPos - uv;
+    float dist = length(toTouch);
+    float2 dir = normalize(toTouch + 0.0001); // 避免除零
     
-    // 添加彩虹色相偏移
-    float hue = (uniforms.time * 0.5 + dist * 2.0) * 6.28318;
-    shineColor.r += sin(hue) * 0.1;
-    shineColor.g += sin(hue + 2.094) * 0.1;
-    shineColor.b += sin(hue + 4.188) * 0.1;
+    // === 1. 动态光泽光源 ===
+    // 模拟手指移动时的光源位置（从触摸点斜上方照射）
+    float2 lightPos = touchPos + float2(0.1 * sin(time), 0.15);
+    float lightDist = length(uv - lightPos);
     
-    // 混合光泽
-    float3 finalColor = mix(color.rgb, shineColor, shineIntensity * 0.4);
+    // 主光泽 - 高斯分布
+    float shineRadius = 0.25;
+    float primaryShine = exp(-(lightDist * lightDist) / (2.0 * shineRadius * shineRadius));
     
-    // 边缘高光
-    float edgeShine = pow(shineIntensity, 3.0) * 0.5;
-    finalColor += shineColor * edgeShine;
+    // === 2. 菲涅尔边缘光 ===
+    // 基于 UV 边缘的距离计算菲涅尔效应
+    float2 fromCenter = uv - 0.5;
+    float edgeDist = length(fromCenter);
+    float edgeFresnel = fresnel(edgeDist * 2.0, 2.5);
     
-    return float4(finalColor, color.a);
+    // === 3. 全息干涉图案 ===
+    // 模拟全息卡片的彩虹衍射效果
+    float angle = atan2(dir.y, dir.x);
+    float interference = sin(dist * 30.0 - time * 3.0) * 0.5 + 0.5;
+    float interference2 = sin(angle * 8.0 + dist * 20.0 + time * 2.0) * 0.5 + 0.5;
+    
+    // 组合干涉图案
+    float holoPattern = interference * interference2 * (1.0 - dist * 0.8);
+    
+    // === 4. 彩虹色散 ===
+    // 基于距离和角度的动态色相
+    float hue = fract((dist * 2.0 - angle / 6.28318) + time * 0.3);
+    float3 rainbow = hsl2rgb(float3(hue, 0.8, 0.6));
+    
+    // === 5. 噪点纹理 ===
+    // 添加细微的噪点增加真实感
+    float noiseVal = noise(uv * 200.0 + time * 0.1);
+    float grain = mix(0.95, 1.05, noiseVal);
+    
+    // === 6. 组合效果 ===
+    float3 finalColor = baseColor.rgb;
+    
+    // 基础光泽（白色高光）
+    float3 specular = float3(1.0, 0.98, 0.95) * primaryShine * 0.6;
+    
+    // 全息彩虹（仅在触摸时出现）
+    float3 holographic = rainbow * holoPattern * 0.4 * uniforms.isTouching;
+    
+    // 边缘菲涅尔光（始终存在，但触摸时增强）
+    float edgeIntensity = 0.15 + uniforms.isTouching * 0.25;
+    float3 edgeGlow = rainbow * edgeFresnel * edgeIntensity;
+    
+    // 混合所有层
+    finalColor = finalColor * grain;
+    finalColor += specular * uniforms.isTouching;
+    finalColor += holographic;
+    finalColor += edgeGlow;
+    
+    // === 7. 微光闪烁 ===
+    float sparkle = pow(noise(uv * 100.0 + time * 5.0), 8.0) * 0.3 * uniforms.isTouching;
+    finalColor += sparkle;
+    
+    // 最终颜色调整 - 保持对比度
+    finalColor = pow(finalColor, 0.9); // 轻微提亮
+    
+    return float4(finalColor, baseColor.a);
 }
