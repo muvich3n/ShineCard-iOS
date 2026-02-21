@@ -34,7 +34,7 @@ struct Uniforms {
 fragment float4 fragmentShader(
     Vertex in [[stage_in]],
     constant Uniforms &uniforms [[buffer(0)]],
-    texture2d<ffloat> cardTexture [[texture(0)]],
+    texture2d<float> cardTexture [[texture(0)]],
     sampler textureSampler [[sampler(0)]]
 ) {
     // 采样卡片纹理
